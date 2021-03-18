@@ -1,54 +1,27 @@
 package badges
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 
+	"github.com/harry93848bb7/chat-archiver/protobuf"
 	"github.com/harry93848bb7/chat-archiver/sterilise"
 )
 
-// Badge ...
-type Badge struct {
-	Code          string `json:"code"`
-	Version       string `json:"version"`
-	Title         string `json:"title"`
-	ImageType     string `json:"image_type"`
-	Base64Encoded string `json:"base64_encoded"`
-}
-
-// Badges ...
-type Badges struct {
-	BadgeSets map[string]Versions `json:"badge_sets"`
-}
-
-// Version ...
-type Version map[string]TwitchBadge
-
-// Versions ...
-type Versions map[string]map[string]TwitchBadge
-
-// TwitchBadge ...
-type TwitchBadge struct {
-	ImageURL1X  string `json:"image_url_1x"`
-	ImageURL2X  string `json:"image_url_2x"`
-	ImageURL4X  string `json:"image_url_4x"`
-	Description string `json:"description"`
-	Title       string `json:"title"`
-	ClickAction string `json:"click_action"`
-	ClickURL    string `json:"click_url"`
-}
-
-// GlobalBadges ...
-func TwitchGlobalBadges() ([]Badge, error) {
+// TwitchGlobal ...
+func TwitchGlobal() ([]*protobuf.Badge, error) {
 	response, err := http.Get("https://badges.twitch.tv/v1/badges/global/display?language=en")
 	if err != nil {
 		return nil, err
 	}
-	var data Badges
+	if response.StatusCode != 200 {
+		log.Println("Error retrieving all Global Twitch Badges")
+		return nil, nil
+	}
+	var data badges
 	b, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
@@ -56,43 +29,51 @@ func TwitchGlobalBadges() ([]Badge, error) {
 	if err := json.Unmarshal(b, &data); err != nil {
 		return nil, err
 	}
-	var badges = []Badge{}
+	var badges = []*protobuf.Badge{}
 	for code, badge := range data.BadgeSets {
 		for number, version := range badge["versions"] {
 			r, err := http.Get(version.ImageURL1X)
 			if err != nil {
 				return nil, err
 			}
+			if r.StatusCode != 200 {
+				log.Println("Error retrieving Global Twitch Badge", code)
+				continue
+			}
 			b, err := ioutil.ReadAll(r.Body)
 			if err != nil {
 				return nil, err
 			}
-			s, format, err := sterilise.SteriliseImage(b)
+			data, format, err := sterilise.SteriliseImage(b)
 			if err == sterilise.UnknownFormat {
 				log.Println("Unknown badge image file format:", version.Title)
 				continue
 			} else if err != nil {
 				return nil, err
 			}
-			badges = append(badges, Badge{
-				Code:          code,
-				Version:       number,
-				Title:         version.Title,
-				ImageType:     format,
-				Base64Encoded: base64.RawStdEncoding.EncodeToString(s),
+			badges = append(badges, &protobuf.Badge{
+				Code:      code,
+				Version:   number,
+				Title:     version.Title,
+				ImageType: format,
+				ImageData: data,
 			})
 		}
 	}
 	return badges, nil
 }
 
-// UserBadges ...
-func UserBadges(userID string) ([]Badge, error) {
+// Channel ...
+func Channel(userID string) ([]*protobuf.Badge, error) {
 	response, err := http.Get(fmt.Sprintf("https://badges.twitch.tv/v1/badges/channels/%s/display?language=en", userID))
 	if err != nil {
 		return nil, err
 	}
-	var data Badges
+	if response.StatusCode != 200 {
+		log.Println("Error retrieving all User Twitch Badges")
+		return nil, nil
+	}
+	var data badges
 	b, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
@@ -100,30 +81,38 @@ func UserBadges(userID string) ([]Badge, error) {
 	if err = json.Unmarshal(b, &data); err != nil {
 		return nil, err
 	}
-	var badges = []Badge{}
+	if len(data.BadgeSets) == 0 {
+		log.Println("No User Twitch Badges found for user", userID)
+		return nil, nil
+	}
+	var badges = []*protobuf.Badge{}
 	for code, badge := range data.BadgeSets {
 		for number, version := range badge["versions"] {
 			r, err := http.Get(version.ImageURL1X)
 			if err != nil {
 				return nil, err
 			}
+			if r.StatusCode != 200 {
+				log.Println("Error retrieving User Twitch Badge", code)
+				continue
+			}
 			b, err := ioutil.ReadAll(r.Body)
 			if err != nil {
 				return nil, err
 			}
-			s, format, err := sterilise.SteriliseImage(b)
+			data, format, err := sterilise.SteriliseImage(b)
 			if err == sterilise.UnknownFormat {
 				log.Println("Unknown badge image file format:", version.Title)
 				continue
 			} else if err != nil {
 				return nil, err
 			}
-			badges = append(badges, Badge{
-				Code:          code,
-				Version:       number,
-				Title:         version.Title,
-				ImageType:     format,
-				Base64Encoded: base64.RawStdEncoding.EncodeToString(s),
+			badges = append(badges, &protobuf.Badge{
+				Code:      code,
+				Version:   number,
+				Title:     version.Title,
+				ImageType: format,
+				ImageData: data,
 			})
 		}
 	}

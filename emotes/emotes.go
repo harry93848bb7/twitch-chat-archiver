@@ -1,66 +1,25 @@
 package emotes
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 
+	"github.com/harry93848bb7/chat-archiver/protobuf"
 	"github.com/harry93848bb7/chat-archiver/sterilise"
 )
 
-// Emote ...
-type Emote struct {
-	Code          string `json:"code"`
-	Source        string `json:"source"`
-	ImageType     string `json:"image_type"`
-	Base64Encoded string `json:"base64_encoded"`
-}
-
-// ArchiveEmotes ...
-func ArchiveEmotes(channelID string) ([]Emote, error) {
-	var emotes = []Emote{}
-
-	bttvUser, err := BTTVUser(channelID)
-	if err != nil {
-		return nil, err
-	}
-	emotes = append(emotes, bttvUser...)
-
-	ffzUser, err := FFZUser(channelID)
-	if err != nil {
-		return nil, err
-	}
-	emotes = append(emotes, ffzUser...)
-
-	ffzGlobal, err := FFZGlobal()
-	if err != nil {
-		return nil, err
-	}
-	emotes = append(emotes, ffzGlobal...)
-
-	bttvGlobal, err := BTTVGlobal()
-	if err != nil {
-		return nil, err
-	}
-	emotes = append(emotes, bttvGlobal...)
-
-	ttvGlobal, err := TwitchGlobal()
-	if err != nil {
-		return nil, err
-	}
-	emotes = append(emotes, ttvGlobal...)
-
-	return emotes, nil
-}
-
 // BTTVGlobal ...
-func BTTVGlobal() ([]Emote, error) {
+func BTTVGlobal() ([]*protobuf.Emote, error) {
 	r, err := http.Get("https://api.betterttv.net/3/cached/emotes/global")
 	if err != nil {
 		return nil, err
+	}
+	if r.StatusCode != 200 {
+		log.Println("Error retrieving all Global BetterTTV emotes")
+		return nil, nil
 	}
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -75,38 +34,50 @@ func BTTVGlobal() ([]Emote, error) {
 	if err := json.Unmarshal(b, &data); err != nil {
 		return nil, err
 	}
-	var emotes = []Emote{}
+	var emotes = []*protobuf.Emote{}
 	for _, emote := range data {
-		r, err := http.Get(fmt.Sprintf("https://cdn.betterttv.net/emote/%s/3x", emote.ID))
+		r, err := http.Get(fmt.Sprintf("https://cdn.betterttv.net/emote/%s/1x", emote.ID))
 		if err != nil {
 			return nil, err
+		}
+		if r.StatusCode != 200 {
+			log.Println("Error retrieving BetterTTV emoticon id", emote.ID)
+			continue
 		}
 		b, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			return nil, err
 		}
-		s, format, err := sterilise.SteriliseImage(b)
+		data, format, err := sterilise.SteriliseImage(b)
 		if err == sterilise.UnknownFormat {
 			log.Println("Unknown emote image file format:", emote.Code)
 			continue
 		} else if err != nil {
 			return nil, err
 		}
-		emotes = append(emotes, Emote{
-			Code:          emote.Code,
-			Source:        "BetterTTV Global Emotes",
-			ImageType:     format,
-			Base64Encoded: base64.RawStdEncoding.EncodeToString(s),
+		emotes = append(emotes, &protobuf.Emote{
+			Code:      emote.Code,
+			Source:    "BetterTTV Global Emotes",
+			ImageType: format,
+			ImageData: data,
 		})
 	}
 	return emotes, nil
 }
 
-// BTTVUser ...
-func BTTVUser(userID string) ([]Emote, error) {
-	r, err := http.Get(fmt.Sprintf("https://api.betterttv.net/3/cached/users/twitch/%s", userID))
+// BTTVChannel ...
+func BTTVChannel(channelID string) ([]*protobuf.Emote, error) {
+	r, err := http.Get(fmt.Sprintf("https://api.betterttv.net/3/cached/users/twitch/%s", channelID))
 	if err != nil {
 		return nil, err
+	}
+	if r.StatusCode == http.StatusNotFound {
+		log.Println("No BetterTTV emotes found for channel", channelID)
+		return nil, nil
+	}
+	if r.StatusCode != 200 {
+		log.Println("Error retrieving BetterTTV channel emotes")
+		return nil, nil
 	}
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -136,61 +107,73 @@ func BTTVUser(userID string) ([]Emote, error) {
 	if err := json.Unmarshal(b, &data); err != nil {
 		return nil, err
 	}
-	var emotes = []Emote{}
+	var emotes = []*protobuf.Emote{}
 	for _, emote := range data.ChannelEmotes {
-		r, err := http.Get(fmt.Sprintf("https://cdn.betterttv.net/emote/%s/3x", emote.ID))
+		r, err := http.Get(fmt.Sprintf("https://cdn.betterttv.net/emote/%s/1x", emote.ID))
 		if err != nil {
 			return nil, err
+		}
+		if r.StatusCode != 200 {
+			log.Println("Error retrieving BetterTTV emoticon id", emote.ID)
+			continue
 		}
 		b, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			return nil, err
 		}
-		s, format, err := sterilise.SteriliseImage(b)
+		data, format, err := sterilise.SteriliseImage(b)
 		if err == sterilise.UnknownFormat {
 			log.Println("Unknown emote image file format:", emote.Code)
 			continue
 		} else if err != nil {
 			return nil, err
 		}
-		emotes = append(emotes, Emote{
-			Code:          emote.Code,
-			Source:        "BetterTTV Channel Emotes",
-			ImageType:     format,
-			Base64Encoded: base64.RawStdEncoding.EncodeToString(s),
+		emotes = append(emotes, &protobuf.Emote{
+			Code:      emote.Code,
+			Source:    "BetterTTV Channel Emotes",
+			ImageType: format,
+			ImageData: data,
 		})
 	}
 	for _, emote := range data.SharedEmotes {
-		r, err := http.Get(fmt.Sprintf("https://cdn.betterttv.net/emote/%s/3x", emote.ID))
+		r, err := http.Get(fmt.Sprintf("https://cdn.betterttv.net/emote/%s/1x", emote.ID))
 		if err != nil {
 			return nil, err
+		}
+		if r.StatusCode != 200 {
+			log.Println("Error retrieving BetterTTV emoticon id", emote.ID)
+			continue
 		}
 		b, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			return nil, err
 		}
-		s, format, err := sterilise.SteriliseImage(b)
+		data, format, err := sterilise.SteriliseImage(b)
 		if err == sterilise.UnknownFormat {
 			log.Println("Unknown emote image file format:", emote.Code)
 			continue
 		} else if err != nil {
 			return nil, err
 		}
-		emotes = append(emotes, Emote{
-			Code:          emote.Code,
-			Source:        "BetterTTV Channel Emotes",
-			ImageType:     format,
-			Base64Encoded: base64.RawStdEncoding.EncodeToString(s),
+		emotes = append(emotes, &protobuf.Emote{
+			Code:      emote.Code,
+			Source:    "BetterTTV Channel Emotes",
+			ImageType: format,
+			ImageData: data,
 		})
 	}
 	return emotes, nil
 }
 
 // FFZGlobal ...
-func FFZGlobal() ([]Emote, error) {
+func FFZGlobal() ([]*protobuf.Emote, error) {
 	r, err := http.Get("https://api.frankerfacez.com/v1/set/global")
 	if err != nil {
 		return nil, err
+	}
+	if r.StatusCode != 200 {
+		log.Println("Error retrieving all Global FrankerFaceZ emotes")
+		return nil, nil
 	}
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -208,7 +191,7 @@ func FFZGlobal() ([]Emote, error) {
 	if err := json.Unmarshal(b, &data); err != nil {
 		return nil, err
 	}
-	var emotes = []Emote{}
+	var emotes = []*protobuf.Emote{}
 	for _, set := range data.Sets {
 		if set.Title == "Global Emotes" {
 			for _, emote := range set.Emoticons {
@@ -216,22 +199,26 @@ func FFZGlobal() ([]Emote, error) {
 				if err != nil {
 					return nil, err
 				}
+				if r.StatusCode != 200 {
+					log.Println("Error retrieving FrankerFaceZ emoticon id", emote.ID)
+					continue
+				}
 				b, err := ioutil.ReadAll(r.Body)
 				if err != nil {
 					return nil, err
 				}
-				s, format, err := sterilise.SteriliseImage(b)
+				data, format, err := sterilise.SteriliseImage(b)
 				if err == sterilise.UnknownFormat {
 					log.Println("Unknown emote image file format:", emote.Name)
 					continue
 				} else if err != nil {
 					return nil, err
 				}
-				emotes = append(emotes, Emote{
-					Code:          emote.Name,
-					Source:        "FrankerFaceZ Global Emotes",
-					ImageType:     format,
-					Base64Encoded: base64.RawStdEncoding.EncodeToString(s),
+				emotes = append(emotes, &protobuf.Emote{
+					Code:      emote.Name,
+					Source:    "FrankerFaceZ Global Emotes",
+					ImageType: format,
+					ImageData: data,
 				})
 			}
 		}
@@ -239,11 +226,19 @@ func FFZGlobal() ([]Emote, error) {
 	return emotes, nil
 }
 
-// FFZUser ...
-func FFZUser(userID string) ([]Emote, error) {
-	r, err := http.Get(fmt.Sprintf("https://api.frankerfacez.com/v1/room/id/%s", userID))
+// FFZChannel ...
+func FFZChannel(channelID string) ([]*protobuf.Emote, error) {
+	r, err := http.Get(fmt.Sprintf("https://api.frankerfacez.com/v1/room/id/%s", channelID))
 	if err != nil {
 		return nil, err
+	}
+	if r.StatusCode == http.StatusNotFound {
+		log.Println("No FrankerFaceZ emotes found for channel", channelID)
+		return nil, nil
+	}
+	if r.StatusCode != 200 {
+		log.Println("Error retrieving FrankerFaceZ channel emotes")
+		return nil, nil
 	}
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -261,29 +256,33 @@ func FFZUser(userID string) ([]Emote, error) {
 	if err := json.Unmarshal(b, &data); err != nil {
 		return nil, err
 	}
-	var emotes = []Emote{}
+	var emotes = []*protobuf.Emote{}
 	for _, channel := range data.Sets {
 		for _, emote := range channel.Emoticons {
 			r, err := http.Get(fmt.Sprintf("https://cdn.frankerfacez.com/emoticon/%d/1", emote.ID))
 			if err != nil {
 				return nil, err
 			}
+			if r.StatusCode != 200 {
+				log.Println("Error retrieving FrankerFaceZ emoticon id", emote.ID)
+				continue
+			}
 			b, err := ioutil.ReadAll(r.Body)
 			if err != nil {
 				return nil, err
 			}
-			s, format, err := sterilise.SteriliseImage(b)
+			data, format, err := sterilise.SteriliseImage(b)
 			if err == sterilise.UnknownFormat {
 				log.Println("Unknown emote image file format:", emote.Name)
 				continue
 			} else if err != nil {
 				return nil, err
 			}
-			emotes = append(emotes, Emote{
-				Code:          emote.Name,
-				Source:        "FrankerFaceZ " + channel.Title,
-				ImageType:     format,
-				Base64Encoded: base64.RawStdEncoding.EncodeToString(s),
+			emotes = append(emotes, &protobuf.Emote{
+				Code:      emote.Name,
+				Source:    "FrankerFaceZ " + channel.Title,
+				ImageType: format,
+				ImageData: data,
 			})
 		}
 	}
@@ -291,8 +290,8 @@ func FFZUser(userID string) ([]Emote, error) {
 }
 
 // TwitchGlobal ...
-func TwitchGlobal() ([]Emote, error) {
-	var emotes = []Emote{}
+func TwitchGlobal() ([]*protobuf.Emote, error) {
+	var emotes = []*protobuf.Emote{}
 	directory, err := twitchGlobal.ReadDir("twitchglobal")
 	if err != nil {
 		return nil, err
@@ -306,18 +305,79 @@ func TwitchGlobal() ([]Emote, error) {
 		if err != nil {
 			return nil, err
 		}
-		s, format, err := sterilise.SteriliseImage(b)
+		data, format, err := sterilise.SteriliseImage(b)
 		if err == sterilise.UnknownFormat {
 			log.Println("Unknown emote image file format:", code)
 			continue
 		} else if err != nil {
 			return nil, err
 		}
-		emotes = append(emotes, Emote{
-			Code:          code,
-			Source:        "Twitch Global",
-			ImageType:     format,
-			Base64Encoded: base64.RawStdEncoding.EncodeToString(s),
+		emotes = append(emotes, &protobuf.Emote{
+			Code:      code,
+			Source:    "Twitch Global",
+			ImageType: format,
+			ImageData: data,
+		})
+	}
+	return emotes, nil
+}
+
+// Channel ...
+func Channel(channelID string) ([]*protobuf.Emote, error) {
+	r, err := http.Get("https://api.twitchemotes.com/api/v4/channels/" + channelID)
+	if err != nil {
+		return nil, err
+	}
+	if r.StatusCode == http.StatusNotFound {
+		log.Println("No Subscription emotes found for channel", channelID)
+		return nil, nil
+	}
+	if r.StatusCode != 200 {
+		log.Println("Error retrieving Channel Subscription emotes")
+		return nil, nil
+	}
+	d := struct {
+		DisplayName string `json:"display_name"`
+		Emotes      []struct {
+			Code        string `json:"code"`
+			EmoticonSet int64  `json:"emoticon_set"`
+			ID          int64  `json:"id"`
+		} `json:"emotes"`
+	}{}
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(b, &d); err != nil {
+		return nil, err
+	}
+	var emotes = []*protobuf.Emote{}
+	for _, e := range d.Emotes {
+
+		r, err := http.Get(fmt.Sprintf("https://static-cdn.jtvnw.net/emoticons/v1/%d/1.0", e.ID))
+		if err != nil {
+			return nil, err
+		}
+		if r.StatusCode != 200 {
+			log.Println("Error retrieving Channel Subscription emoticon id", e.ID)
+			continue
+		}
+		b, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			return nil, err
+		}
+		data, format, err := sterilise.SteriliseImage(b)
+		if err == sterilise.UnknownFormat {
+			log.Println("Unknown emote image file format:", e.Code)
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+		emotes = append(emotes, &protobuf.Emote{
+			Code:      e.Code,
+			Source:    "Channel: " + d.DisplayName,
+			ImageType: format,
+			ImageData: data,
 		})
 	}
 	return emotes, nil

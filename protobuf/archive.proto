@@ -1,0 +1,52 @@
+syntax = "proto3";
+package protobuf;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = ".;protobuf";
+
+message Archive {
+    int64 vod_id = 1;
+    string title = 2;
+    string category = 3;
+    google.protobuf.Timestamp length = 4;
+    google.protobuf.Timestamp recorded_at = 5;
+    Channel channel = 6;
+  
+    repeated Badge badges = 7;
+    repeated Emote emotes = 8;
+    repeated Message messages = 9;
+}
+
+message Channel {
+    string name = 1;
+    int64 id = 2;
+}
+
+message Emote {
+    string code = 1;
+    string source = 2;
+    string image_type = 3;
+    bytes image_data = 4;
+}
+
+message Badge {
+    string code = 1;
+    string version = 2;
+    string title = 3;
+    string image_type = 4;
+    bytes image_data = 5;
+}
+
+message Message {
+    double content_offset = 1;
+    string display_name = 2;
+    string display_color = 3;
+    string content = 4;
+    repeated MessageBadge badges = 5;
+}
+
+message MessageBadge {
+    string code = 1;
+    string version = 2;
+}
