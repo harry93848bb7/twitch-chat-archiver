@@ -13,7 +13,7 @@ import (
 
 // BTTVGlobal ...
 func BTTVGlobal() ([]*protobuf.Emote, error) {
-	r, err := http.Get("https://api.betterttv.net/3/cached/emotes/global")
+	r, err := http.Get("http://api.betterttv.net/3/cached/emotes/global")
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func BTTVGlobal() ([]*protobuf.Emote, error) {
 	}
 	var emotes = []*protobuf.Emote{}
 	for _, emote := range data {
-		r, err := http.Get(fmt.Sprintf("https://cdn.betterttv.net/emote/%s/1x", emote.ID))
+		r, err := http.Get(fmt.Sprintf("http://cdn.betterttv.net/emote/%s/1x", emote.ID))
 		if err != nil {
 			return nil, err
 		}
@@ -67,7 +67,7 @@ func BTTVGlobal() ([]*protobuf.Emote, error) {
 
 // BTTVChannel ...
 func BTTVChannel(channelID string) ([]*protobuf.Emote, error) {
-	r, err := http.Get(fmt.Sprintf("https://api.betterttv.net/3/cached/users/twitch/%s", channelID))
+	r, err := http.Get(fmt.Sprintf("http://api.betterttv.net/3/cached/users/twitch/%s", channelID))
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func BTTVChannel(channelID string) ([]*protobuf.Emote, error) {
 	}
 	var emotes = []*protobuf.Emote{}
 	for _, emote := range data.ChannelEmotes {
-		r, err := http.Get(fmt.Sprintf("https://cdn.betterttv.net/emote/%s/1x", emote.ID))
+		r, err := http.Get(fmt.Sprintf("http://cdn.betterttv.net/emote/%s/1x", emote.ID))
 		if err != nil {
 			return nil, err
 		}
@@ -136,7 +136,7 @@ func BTTVChannel(channelID string) ([]*protobuf.Emote, error) {
 		})
 	}
 	for _, emote := range data.SharedEmotes {
-		r, err := http.Get(fmt.Sprintf("https://cdn.betterttv.net/emote/%s/1x", emote.ID))
+		r, err := http.Get(fmt.Sprintf("http://cdn.betterttv.net/emote/%s/1x", emote.ID))
 		if err != nil {
 			return nil, err
 		}
@@ -167,7 +167,7 @@ func BTTVChannel(channelID string) ([]*protobuf.Emote, error) {
 
 // FFZGlobal ...
 func FFZGlobal() ([]*protobuf.Emote, error) {
-	r, err := http.Get("https://api.frankerfacez.com/v1/set/global")
+	r, err := http.Get("http://api.frankerfacez.com/v1/set/global")
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +195,7 @@ func FFZGlobal() ([]*protobuf.Emote, error) {
 	for _, set := range data.Sets {
 		if set.Title == "Global Emotes" {
 			for _, emote := range set.Emoticons {
-				r, err := http.Get(fmt.Sprintf("https://cdn.frankerfacez.com/emoticon/%d/1", emote.ID))
+				r, err := http.Get(fmt.Sprintf("http://cdn.frankerfacez.com/emoticon/%d/1", emote.ID))
 				if err != nil {
 					return nil, err
 				}
@@ -228,7 +228,7 @@ func FFZGlobal() ([]*protobuf.Emote, error) {
 
 // FFZChannel ...
 func FFZChannel(channelID string) ([]*protobuf.Emote, error) {
-	r, err := http.Get(fmt.Sprintf("https://api.frankerfacez.com/v1/room/id/%s", channelID))
+	r, err := http.Get(fmt.Sprintf("http://api.frankerfacez.com/v1/room/id/%s", channelID))
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +259,7 @@ func FFZChannel(channelID string) ([]*protobuf.Emote, error) {
 	var emotes = []*protobuf.Emote{}
 	for _, channel := range data.Sets {
 		for _, emote := range channel.Emoticons {
-			r, err := http.Get(fmt.Sprintf("https://cdn.frankerfacez.com/emoticon/%d/1", emote.ID))
+			r, err := http.Get(fmt.Sprintf("http://cdn.frankerfacez.com/emoticon/%d/1", emote.ID))
 			if err != nil {
 				return nil, err
 			}
@@ -289,19 +289,19 @@ func FFZChannel(channelID string) ([]*protobuf.Emote, error) {
 	return emotes, nil
 }
 
-// TwitchGlobal ...
-func TwitchGlobal() ([]*protobuf.Emote, error) {
+// Robot ...
+func Robot() ([]*protobuf.Emote, error) {
 	var emotes = []*protobuf.Emote{}
-	directory, err := twitchGlobal.ReadDir("twitchglobal")
+	directory, err := robotEmotes.ReadDir("robot")
 	if err != nil {
 		return nil, err
 	}
 	for _, entry := range directory {
 		code := emoteMapping[entry.Name()]
 		if code == "" {
-			return nil, fmt.Errorf("emote mapping not found")
+			return nil, fmt.Errorf("Emote mapping not found")
 		}
-		b, err := twitchGlobal.ReadFile("twitchglobal/" + entry.Name())
+		b, err := robotEmotes.ReadFile("robot/" + entry.Name())
 		if err != nil {
 			return nil, err
 		}
@@ -322,9 +322,116 @@ func TwitchGlobal() ([]*protobuf.Emote, error) {
 	return emotes, nil
 }
 
+func TwitchGlobal() ([]*protobuf.Emote, error) {
+	var emotes = []*protobuf.Emote{}
+
+	// All Twitch Global emotes excluding Robot
+	r, err := http.Get("http://api.twitchemotes.com/api/v4/channels/0")
+	if err != nil {
+		return nil, err
+	}
+	if r.StatusCode != 200 {
+		return nil, fmt.Errorf("Failed to retrieve Twitch Global emotes")
+	}
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+	data := struct {
+		Emotes []struct {
+			Code        string `json:"code"`
+			EmoticonSet int64  `json:"emoticon_set"`
+			ID          int64  `json:"id"`
+		} `json:"emotes"`
+	}{}
+	if err := json.Unmarshal(b, &data); err != nil {
+		return nil, err
+	}
+	if len(data.Emotes) < 14 {
+		return nil, fmt.Errorf("Failed to retrieve Twitch Global emotes")
+	}
+	for i := 14; i < len(data.Emotes); i++ {
+		r, err := http.Get(fmt.Sprintf("http://static-cdn.jtvnw.net/emoticons/v1/%d/1.0", data.Emotes[i].ID))
+		if err != nil {
+			return nil, err
+		}
+		if r.StatusCode != 200 {
+			log.Println("Error retrieving Twitch Global emoticon id", data.Emotes[i].ID)
+			continue
+		}
+		b, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			return nil, err
+		}
+		d, format, err := sterilise.SteriliseImage(b)
+		if err == sterilise.UnknownFormat {
+			log.Println("Unknown emote image file format:", data.Emotes[i].Code)
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+		emotes = append(emotes, &protobuf.Emote{
+			Code:      data.Emotes[i].Code,
+			Source:    "Twitch Global",
+			ImageType: format,
+			ImageData: d,
+		})
+	}
+	// All Twitch Turbo and Twitch Prime emotes
+	r, err = http.Get("http://api.twitchemotes.com/api/v4/channels/5")
+	if err != nil {
+		return nil, err
+	}
+	if r.StatusCode != 200 {
+		return nil, fmt.Errorf("Failed to retrieve Twitch Global emotes")
+	}
+	b, err = ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+	data = struct {
+		Emotes []struct {
+			Code        string `json:"code"`
+			EmoticonSet int64  `json:"emoticon_set"`
+			ID          int64  `json:"id"`
+		} `json:"emotes"`
+	}{}
+	if err := json.Unmarshal(b, &data); err != nil {
+		return nil, err
+	}
+	for _, e := range data.Emotes {
+		r, err := http.Get(fmt.Sprintf("http://static-cdn.jtvnw.net/emoticons/v1/%d/1.0", e.ID))
+		if err != nil {
+			return nil, err
+		}
+		if r.StatusCode != 200 {
+			log.Println("Error retrieving Twitch Global emoticon id", e.ID)
+			continue
+		}
+		b, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			return nil, err
+		}
+		d, format, err := sterilise.SteriliseImage(b)
+		if err == sterilise.UnknownFormat {
+			log.Println("Unknown emote image file format:", e.Code)
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+		emotes = append(emotes, &protobuf.Emote{
+			Code:      e.Code,
+			Source:    "Twitch Global",
+			ImageType: format,
+			ImageData: d,
+		})
+	}
+	return emotes, nil
+}
+
 // Channel ...
 func Channel(channelID string) ([]*protobuf.Emote, error) {
-	r, err := http.Get("https://api.twitchemotes.com/api/v4/channels/" + channelID)
+	r, err := http.Get("http://api.twitchemotes.com/api/v4/channels/" + channelID)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +461,7 @@ func Channel(channelID string) ([]*protobuf.Emote, error) {
 	var emotes = []*protobuf.Emote{}
 	for _, e := range d.Emotes {
 
-		r, err := http.Get(fmt.Sprintf("https://static-cdn.jtvnw.net/emoticons/v1/%d/1.0", e.ID))
+		r, err := http.Get(fmt.Sprintf("http://static-cdn.jtvnw.net/emoticons/v1/%d/1.0", e.ID))
 		if err != nil {
 			return nil, err
 		}
