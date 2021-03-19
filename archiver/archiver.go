@@ -44,6 +44,11 @@ func Emotes(channelID string) ([]*protobuf.Emote, error) {
 		return nil, err
 	}
 	emote = append(emote, twitchglobal...)
+	robot, err := emotes.Robot()
+	if err != nil {
+		return nil, err
+	}
+	emote = append(emote, robot...)
 	channel, err := emotes.Channel(channelID)
 	if err != nil {
 		return nil, err
@@ -52,10 +57,14 @@ func Emotes(channelID string) ([]*protobuf.Emote, error) {
 
 	// Provide warning logs if emotes are duplicate across different sources
 	for i := range emote {
+		emoteFound := 0
 		for d := range emote {
-			if (emote[i].Code == emote[d].Code) && (emote[i].Source != emote[d].Source) {
-				log.Printf(`Warning: Duplicate emote "%s" found across sources "%s" and "%s"`+"\n", emote[i].Code, emote[i].Source, emote[d].Source)
+			if emote[i].Code == emote[d].Code {
+				emoteFound++
 			}
+		}
+		if emoteFound > 1 {
+			log.Printf(`Warning: Duplicate emote "%s" found across sources`, emote[i].Code)
 		}
 	}
 	return emote, nil

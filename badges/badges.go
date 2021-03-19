@@ -13,7 +13,7 @@ import (
 
 // TwitchGlobal ...
 func TwitchGlobal() ([]*protobuf.Badge, error) {
-	response, err := http.Get("https://badges.twitch.tv/v1/badges/global/display?language=en")
+	response, err := http.Get("http://badges.twitch.tv/v1/badges/global/display?language=en")
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func TwitchGlobal() ([]*protobuf.Badge, error) {
 
 // Channel ...
 func Channel(userID string) ([]*protobuf.Badge, error) {
-	response, err := http.Get(fmt.Sprintf("https://badges.twitch.tv/v1/badges/channels/%s/display?language=en", userID))
+	response, err := http.Get(fmt.Sprintf("http://badges.twitch.tv/v1/badges/channels/%s/display?language=en", userID))
 	if err != nil {
 		return nil, err
 	}

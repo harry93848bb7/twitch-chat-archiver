@@ -22,7 +22,7 @@ func NewClient(clientID string) *Client {
 
 // GetVODInfo ..
 func (c *Client) GetVODInfo(vodID string) (*vodInfo, error) {
-	request, err := http.NewRequest(http.MethodGet, "https://api.twitch.tv/kraken/videos/"+vodID, nil)
+	request, err := http.NewRequest(http.MethodGet, "http://api.twitch.tv/kraken/videos/"+vodID, nil)
 	if err != nil {
 		return &vodInfo{}, err
 	}
@@ -49,7 +49,7 @@ func (c *Client) GetVODInfo(vodID string) (*vodInfo, error) {
 
 // GetMessageChunk ...
 func (c *Client) GetMessageChunk(next string, vodID string) (*messageChunk, error) {
-	r, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://api.twitch.tv/v5/videos/%s/comments?cursor="+next, vodID), nil)
+	r, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://api.twitch.tv/v5/videos/%s/comments?cursor="+next, vodID), nil)
 	if err != nil {
 		return &messageChunk{}, nil
 	}
