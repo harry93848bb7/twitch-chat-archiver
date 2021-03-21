@@ -22,10 +22,12 @@ A tool to archive an entire VOD chat. The goal of this tool is to save all relav
 ### Installation / Usage
 You will need a Twitch Client ID. Register an application [here](https://dev.twitch.tv/console/apps/create) and copy the Client ID. The OAuth Redirect URL can be any value.
 
-1. `go get github.com/harry93848bb7/twitch-chat-archive/tree/main/cmd/chat-archiver`
-2. `chat-archiver -client_id=4ab086186863bffbf81a73d359fc2ec7 -vod_id=951894217`
 
-#### CLI Arguments
+1. Download the [latest release](https://github.com/harry93848bb7/twitch-chat-archive/releases) for your system or build the binary from source: `go get github.com/harry93848bb7/twitch-chat-archive/tree/main/cmd/chat-archiver`
+2. Extract the files in a folder of your choice
+2. Run the CLI: `./chat-archiver -client_id=4ab086186863bffbf81a73d359fc2ec7 -vod_id=951894217`
+
+### CLI Arguments
 ```
   -client_id string
         Twitch Developer Application Client ID
